@@ -8,50 +8,40 @@ from astropy.io import fits
 from astropy.table import Table
 from astropy.cosmology import Planck13 as cosmo
 from astropy import units as u
-import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 from photutils import EllipticalAnnulus
 from photutils import EllipticalAperture
 from photutils import aperture_photometry
 import pandas as pd
 
-#welcome margay
+#######################################################################################################################
 
-def welcome_margay():
-    plt.figure(figsize=(6,4))
-    plt.title("PYthon based MAnga Resolved Galaxy AnalYsis")
-    img = mpimg.imread('/home/himansh/Passive_projects/NCRA_Project/Python/pymargay.jpg')
-    plt.imshow(img, cmap = plt.cm.binary.reversed())
-    plt.axis('off')
-    plt.show()
+#Required catalogs
 
-table_address = "/home/himansh/Passive_projects/NCRA_Project/Python/S0_Sample_Analysis/"
-    
-#global properties table, Pipe3D + Salim
-Pipe3D_Salim = Table.read(table_address + "Pipe3D_Salim_cross.txt", format = 'ascii')
+#global properties table, cross of Pipe3D + Salim
+Pipe3D_Salim = Table.read('address1')
 #pymorph r-band photometric data
-totalrband = Table.read(table_address + "total_salim_pipe3d_rband_pymorph.fits")
+totalrband = Table.read('address2')
 #Postion angle correction to pymorph measurements
-SPA_corr = Table.read(table_address + "manga-pymorph-DR15-SPA.fits")
-#MaNGA target catalog
-MaNGA_target = Table.read(table_address + 'Paper_stuff/volume_corr/MaNGA_target_Pipe3D.fits')
+SPA_corr = Table.read('address3')
+#MaNGA target catalog (Wake et al. 2017)
+MaNGA_target = Table.read('address4')
 
+########################################################################################################################
 
-#Functions
-
-#general functions
+#functions for obtaining general properties of a MaNGA galaxy
 
 def get_fits_hdul(MaNGA_ID):
     #retrieves the hdul of the fits file of our object
     
-    hdul = fits.open('/home/himansh/Passive_projects/NCRA_Project/Python/S0_Sample_Analysis/Pipe3D_Control_Sample_Main_Sample/manga-' + MaNGA_ID + '.Pipe3D.cube.fits')    
+    hdul = fits.open('address5') #address5 should be a function of MaNGA_ID    
     return hdul
 
 def get_coordinates(MaNGA_ID):
     '''
-    Gets the equitorial coordinates of the given galaxy from the primary header of the cube.
+    Gets the equitorial coordinates of the given galaxy from the primary header of the datacube.
     input: Manga_ID of the galaxy
-    returns: 2-tuple (ra,dec) of the galaxy, extracted from the primary header of the cube
+    returns: 2-tuple (ra,dec) of the galaxy, extracted from the primary header of the datacube
     '''
     hdul = get_fits_hdul(MaNGA_ID)
     ra = hdul[0].header['OBJRA']
@@ -60,7 +50,7 @@ def get_coordinates(MaNGA_ID):
 
 def get_redshift(MaNGA_ID):
     #retrieves the redshift mentioned in the Salim catalog for our object
-    #Redshifts mentioned in the Salim Catalog are from SDSS, whereas Pipe3D redshifts are those derived by Pipe3D.
+    #Redshifts mentioned in the Salim Catalog are from SDSS, whereas Pipe3D redshifts are those derived by Pipe3D
     
     ID = 'manga' + '-' + MaNGA_ID
     IDs = Pipe3D_Salim['mangaid']
@@ -69,7 +59,7 @@ def get_redshift(MaNGA_ID):
     return z
 
 def get_luminosity_distance(MaNGA_ID):
-    #Obtains the luminosity distance (in cm) given the MaNGA_ID
+    #returns the luminosity distance (in cm) given the MaNGA_ID
     
     z = get_redshift(MaNGA_ID)
     d = cosmo.luminosity_distance(z).to(u.cm)
@@ -77,100 +67,24 @@ def get_luminosity_distance(MaNGA_ID):
     return d_cm
 
 def get_spaxel_area(MaNGA_ID):
-    #Obtains the proper area of each spaxel (in Kpc^2) from the angular size of each spaxel mentioned in the datacube header
+    #returns the proper area of each spaxel (in kpc^2) from the angular size of each spaxel mentioned in the datacube header
     
     hdul = get_fits_hdul(MaNGA_ID)
     z = get_redshift(MaNGA_ID)
     spx_scale = hdul[0].header['CD2_2']*3600 #angular scale of each spaxel in arcsec
     spaxel_size = cosmo.kpc_proper_per_arcmin(z)*spx_scale/60 #kiloparsecs corresponding to a spaxel
-    spaxel_area = (spaxel_size.value)**2 #spaxel_area in Kpc^2
+    spaxel_area = (spaxel_size.value)**2 #spaxel_area in kpc^2
     return spaxel_area
 
-#SFR related functions
-
-def get_Ha_map(MaNGA_ID, snr_cutoff = 3):
-    #Returns the Ha flux map and the Ha noise flux map, with the required S/N ratio 
-    #inputs: MaNGA_ID, Ha line S/N cutoff (by default taken to be 3)
-    
-    #H alpha map
-    hdul = get_fits_hdul(MaNGA_ID)
-    emline_maps = np.copy(hdul[3].data)
-    
-    ha = np.copy(emline_maps[45,:,:])
-    ha[ha<=0] = math.nan
-
-    #setting s/n cutoff
-
-    ha_noise = np.copy(emline_maps[273,:,:])
-    ha_noise[ha_noise<=0] = math.nan
-    
-    low_snr_indices = np.where(emline_maps[45,:,:]/emline_maps[273,:,:] < snr_cutoff)
-
-    ha[low_snr_indices] = math.nan
-    ha_noise[low_snr_indices] = math.nan
-    
-    return ha , ha_noise
-
-def get_A_Ha_map(MaNGA_ID, snr_cutoff = 3):
-    #returns the A_Ha map for the object
-    #inputs: MaNGA_ID, emission line S/N cutoff (by default taken to be 3)
-    
-    oiii, oiii_noise, nii, nii_noise, ha, ha_noise, hb, hb_noise = get_bpt_lines_map(MaNGA_ID, snr_cutoff)
-    EBV = 1.97*np.log10((ha/hb)/2.86)
-    
-    A_Halpha = EBV * 3.33
-    
-    return A_Halpha
-
-def apply_dust_correction(A_Ha, Ha):
-    #returns the dust corrected Ha flux map
-    #inputs: Ha flux map
-    corr_ha = Ha * (10**(0.4*A_Ha)) #corrected halpha flux
-    return corr_ha
-
-def get_SFR_map(MaNGA_ID, snr_cutoff = 3):
-    #returns the SFR map (solar masses/yr) and the sigma SFR map (solar masses/yr/Kpc^2) and the respective error maps
-    #input: MaNGA_ID, S/N cutoff on Halpha line (by default taken to be 3)
-    
-    Ha, Ha_noise = get_Ha_map(MaNGA_ID, snr_cutoff)
-    A_Ha = get_A_Ha_map(MaNGA_ID, snr_cutoff)
-    corr_ha = apply_dust_correction(A_Ha, Ha)
-    
-    d_cm = get_luminosity_distance(MaNGA_ID)
-    spx_area = get_spaxel_area(MaNGA_ID)
-    
-    Ha_luminosity = np.copy(corr_ha) * 4 * np.pi * (d_cm**2)*(10**(-16))
-    Ha_noise_luminosity = np.copy(Ha_noise) * 4 * np.pi * (d_cm**2)*(10**(-16))
-    
-    #Star Formation Rate
-    SFR = 7.9E-42 * Ha_luminosity #Kennicutt1998, with Saltpeter IMF
-    SFR_error = 7.9E-42 * Ha_noise_luminosity
-    
-    #Star formation rate surface density
-    sigma_sfr = SFR/spx_area #Sigma SFR
-    sigma_sfr_error = SFR_error/spx_area
-    
-    return SFR, SFR_error, sigma_sfr, sigma_sfr_error
-    
-def get_Ha_lum_map(MaNGA_ID, snr_cutoff = 3):
-    #input: MaNGA_ID, S/N cutoff on Halpha line (by default taken to be 3)
-    
-    Ha, Ha_noise = get_Ha_map(MaNGA_ID, snr_cutoff)
-    A_Ha = get_A_Ha_map(MaNGA_ID, snr_cutoff)
-    corr_ha = apply_dust_correction(A_Ha, Ha)
-    
-    d_cm = get_luminosity_distance(MaNGA_ID)
-    
-    Ha_luminosity = np.copy(corr_ha) * 4 * np.pi * (d_cm**2)*(10**(-16))
-    Ha_noise_luminosity = np.copy(Ha_noise) * 4 * np.pi * (d_cm**2)*(10**(-16))
-    
-    return Ha_luminosity, Ha_noise_luminosity
+############################################################################################################################
 
 #BPT related functions
 
-#BPT lines map
-
-def get_bpt_lines_map(MaNGA_ID, snr_cutoff = 3):
+def get_bpt_lines_map(MaNGA_ID, snr_cutoff = 3): #Fluxes of the 4 BPT lines
+    '''
+    inputs: MaNGA_ID of the galaxy, S/N cutoff to be applied to the 4 BPT lines
+    returns: The flux maps of the 4 BPT lines, and the corresponding error maps. No dust correction is applied, since these lines have similar wavelengths and we take their ratios. So, dust correction will not play a significant role
+    '''
     
     hdul = get_fits_hdul(MaNGA_ID)
     emline_maps = np.copy(hdul[3].data)
@@ -215,13 +129,10 @@ def get_bpt_lines_map(MaNGA_ID, snr_cutoff = 3):
     
     return oiii, oiii_noise, nii, nii_noise, ha, ha_noise, hb, hb_noise
 
-#Useful functions to simplify code based on inequations
-def line(x, a, b):
-    #ref Kewley 2006
+def line(x, a, b): #Kewley et al. 2006 line
     return 0.61/(x - a) + b
 
-def liner(x):
-    # ref. Cid Fernandes 2010
+def liner(x): #Cid Fernandes et al. 2010 line
     return 1.01*x + 0.48
 
 def get_BPT_tags(MaNGA_ID, snr_cutoff = 3):
@@ -255,8 +166,90 @@ def get_BPT_tags(MaNGA_ID, snr_cutoff = 3):
     seyfert = np.logical_and(shock, seyfert_con1)
     
     return SF, comp, liners, seyfert
+
+#########################################################################################################################
+
+#functions for obtaining resolved maps
+
+def get_Ha_map(MaNGA_ID, snr_cutoff = 3):
+    #Returns the Ha flux map and the Ha noise flux map, with the required S/N ratio 
+    #inputs: MaNGA_ID, Ha line S/N cutoff (by default taken to be 3)
     
-#Sigma star map
+    #H alpha map
+    hdul = get_fits_hdul(MaNGA_ID)
+    emline_maps = np.copy(hdul[3].data)
+    
+    ha = np.copy(emline_maps[45,:,:])
+    ha[ha<=0] = math.nan
+
+    #setting s/n cutoff
+
+    ha_noise = np.copy(emline_maps[273,:,:])
+    ha_noise[ha_noise<=0] = math.nan
+    
+    low_snr_indices = np.where(emline_maps[45,:,:]/emline_maps[273,:,:] < snr_cutoff)
+
+    ha[low_snr_indices] = math.nan
+    ha_noise[low_snr_indices] = math.nan
+    
+    return ha , ha_noise
+
+def get_A_Ha_map(MaNGA_ID, snr_cutoff = 3):
+    #returns the A_Ha map for the object (attenuation at Ha wavelength) using Balmer decrement
+    #inputs: MaNGA_ID, emission line S/N cutoff (by default taken to be 3). This S/N cutoff is for all 4 BPT emission lines
+    
+    oiii, oiii_noise, nii, nii_noise, ha, ha_noise, hb, hb_noise = get_bpt_lines_map(MaNGA_ID, snr_cutoff)
+    EBV = 1.97*np.log10((ha/hb)/2.86) # E(B-V) is the color excess
+    
+    A_Halpha = EBV * 3.33
+    
+    return A_Halpha
+
+def apply_dust_correction(A_Ha, Ha):
+    #returns the dust corrected Ha flux map
+    #inputs: attenuation map of Ha, Ha flux map
+    corr_ha = Ha * (10**(0.4*A_Ha)) #corrected halpha flux
+    return corr_ha
+
+def get_SFR_map(MaNGA_ID, snr_cutoff = 3):
+    #returns the dust corrected SFR map (solar masses/yr) and the sigma SFR map (solar masses/yr/kpc^2) and the respective error maps. No dust correction is applied to the error maps.
+    #input: MaNGA_ID, S/N cutoff on the 4 BPT emission lines (by default taken to be 3) 
+    
+    Ha, Ha_noise = get_Ha_map(MaNGA_ID, snr_cutoff)
+    A_Ha = get_A_Ha_map(MaNGA_ID, snr_cutoff)
+    corr_ha = apply_dust_correction(A_Ha, Ha)
+    
+    d_cm = get_luminosity_distance(MaNGA_ID)
+    spx_area = get_spaxel_area(MaNGA_ID)
+    
+    Ha_luminosity = np.copy(corr_ha) * 4 * np.pi * (d_cm**2)*(10**(-16))
+    Ha_noise_luminosity = np.copy(Ha_noise) * 4 * np.pi * (d_cm**2)*(10**(-16))
+    
+    #Star Formation Rate
+    SFR = 7.9E-42 * Ha_luminosity #Kennicutt1998, with Saltpeter IMF
+    SFR_error = 7.9E-42 * Ha_noise_luminosity
+    
+    #Star formation rate surface density
+    sigma_sfr = SFR/spx_area #Sigma SFR
+    sigma_sfr_error = SFR_error/spx_area
+    
+    return SFR, SFR_error, sigma_sfr, sigma_sfr_error
+    
+def get_Ha_lum_map(MaNGA_ID, snr_cutoff = 3):
+    #input: MaNGA_ID, S/N cutoff on the 4 BPT lines (by default taken to be 3)
+    #returns: dust corrected Ha luminosity and its error map. No dust correction is applied to the error map.
+    
+    Ha, Ha_noise = get_Ha_map(MaNGA_ID, snr_cutoff)
+    A_Ha = get_A_Ha_map(MaNGA_ID, snr_cutoff)
+    corr_ha = apply_dust_correction(A_Ha, Ha)
+    
+    d_cm = get_luminosity_distance(MaNGA_ID)
+    
+    Ha_luminosity = np.copy(corr_ha) * 4 * np.pi * (d_cm**2)*(10**(-16))
+    Ha_noise_luminosity = np.copy(Ha_noise) * 4 * np.pi * (d_cm**2)*(10**(-16))
+    
+    return Ha_luminosity, Ha_noise_luminosity
+
 
 def get_smd_map(MaNGA_ID):
     #returns the stellar mass surface density map
@@ -269,10 +262,9 @@ def get_smd_map(MaNGA_ID):
     
     return smd
 
-#V band images
 
 def get_Vband_map(MaNGA_ID):
-    #returns the V band image
+    #returns the V band image of the galaxy
     
     hdul = get_fits_hdul(MaNGA_ID)
     
@@ -280,8 +272,6 @@ def get_Vband_map(MaNGA_ID):
     
     return V
 
-
-#Gas metallicity map
 
 def get_gas_metallicity_map(MaNGA_ID, snr_cutoff = 3):
     #returns the gas metallicity map for the given object and the corresponding error map
@@ -294,7 +284,7 @@ def get_gas_metallicity_map(MaNGA_ID, snr_cutoff = 3):
     an = np.log10(ha/nii) # Ha/[NII]
     O3N2 = ob + an
     
-    #Calculating gas phase metallicity
+    #Calculating gas phase metallicity (Ellison et al. 2018, Marino et al. 2013)
     gm = 8.533 - (0.214*O3N2)
     
     #Calculating error
@@ -303,32 +293,23 @@ def get_gas_metallicity_map(MaNGA_ID, snr_cutoff = 3):
     return gm, gm_error
 
 def get_lum_wt_age_map(MaNGA_ID):
+    #returns the luminosity weighted age map of the stellar population
     
     hdul = get_fits_hdul(MaNGA_ID)
     lum_age = np.copy(hdul[1].data[5])
-    #error_age = np.copy(hdul[1].data[7])
-    
-    #indices = (lum_age/error_age) > snr_cutoff
-    
-    #lum_age[indices == False] = math.nan
-    #error_age[indices == False] = math.nan
     
     return lum_age
 
 def get_mass_wt_age_map(MaNGA_ID):
+    #returns the mass weighted age map of the stellar population
     
     hdul = get_fits_hdul(MaNGA_ID)
     mass_age = np.copy(hdul[1].data[6])
-    #error_age = np.copy(hdul[1].data[7])
-    
-    #indices = (mass_age/error_age) > snr_cutoff
-    
-    #mass_age[indices == False] = math.nan
-    #error_age[indices == False] = math.nan
     
     return mass_age
 
 def get_age_error_map(MaNGA_ID):
+    #returns the error map of the age of the stellar population
 
     hdul = get_fits_hdul(MaNGA_ID)
     error_age = np.copy(hdul[1].data[7])
@@ -336,6 +317,7 @@ def get_age_error_map(MaNGA_ID):
     return error_age
 
 def get_lum_wt_sm_map(MaNGA_ID):
+    #returns luminosity weighted metallicity of the stellar population. 12 is added to it in order to make the values positive definite 
     
     hdul = get_fits_hdul(MaNGA_ID)
     lum_sm = np.copy(hdul[1].data[8])
@@ -343,6 +325,7 @@ def get_lum_wt_sm_map(MaNGA_ID):
     return 12 + lum_sm
 
 def get_mass_wt_sm_map(MaNGA_ID):
+    #returns mass weighted metallicity of the stellar population. 12 is added to it in order to make the values positive definite 
     
     hdul = get_fits_hdul(MaNGA_ID)
     mass_sm = np.copy(hdul[1].data[9])
@@ -350,11 +333,14 @@ def get_mass_wt_sm_map(MaNGA_ID):
     return 12 + mass_sm
 
 def get_sm_error_map(MaNGA_ID):
+    #returns the metallicity error map of the stellar population. 12 is added to it in order to make the values positive definite     
 
     hdul = get_fits_hdul(MaNGA_ID)
     error_sm = np.copy(hdul[1].data[10])
     
     return 12 + error_sm
+
+######################################################################################################################
 
 #combined sigma sfr - sigma star arrays
 
