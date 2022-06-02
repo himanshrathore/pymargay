@@ -340,12 +340,23 @@ def get_sm_error_map(MaNGA_ID):
     
     return 12 + error_sm
 
+def get_sigma_map(MaNGA_ID):
+    #returns the stellar velocity dispersion map (km/s) and the corresponding error map (km/s)
+    
+    hdul = get_fits_hdul(MaNGA_ID)
+    
+    sigma = np.copy(hdul[1].data[15])
+    sigma_error = np.copy(hdul[1].data[16])
+    
+    return sigma, sigma_error
+
 ######################################################################################################################
 
-#combined sigma sfr - sigma star arrays
+#functions related to resolved star-formation and gas metallicity main sequence
 
-def get_SFR_M_arrays(MaNGA_IDs, snr_cutoff = 3):
-    #Returns the combined flattened arrays of SFR and Stellar Mass surface densities for the MaNGA_IDs
+def get_SFR_M_arrays(MaNGA_IDs, snr_cutoff = 3): #Star-formation Main Sequence (SFMS)
+    #Inputs: an array of MaNGA_IDs of galaxies whose combined resolved SFMS is to be plotted. S/N cutoff on the 4 BPT lines
+    #Returns: the combined flattened arrays of stellar mass and SFR surface density of the spaxels of the galaxies provided. For SFR surface density, the corresponding array containing the errors is also returned
 
     my_sigma_sfr_flattened = np.array([])
     my_sigma_sfr_error_flattened = np.array([])
@@ -373,7 +384,7 @@ def get_SFR_M_arrays(MaNGA_IDs, snr_cutoff = 3):
         temp_sigma_sfr_error_flattened = temp_sigma_sfr_error.flatten()
         temp_smd_flattened = temp_smd.flatten()
 
-        mask2 = np.logical_and(np.logical_and(temp_smd_flattened>0, temp_sigma_sfr_flattened>0), temp_sigma_sfr_error_flattened > 0) #removing nan and ambigous values
+        mask2 = np.logical_and(np.logical_and(temp_smd_flattened>0, temp_sigma_sfr_flattened>0), temp_sigma_sfr_error_flattened > 0) #removing nan and ambiguos values
 
         my_sigma_sfr_flattened = np.append(my_sigma_sfr_flattened, temp_sigma_sfr_flattened[mask2])
         my_sigma_sfr_error_flattened = np.append(my_sigma_sfr_error_flattened, temp_sigma_sfr_error_flattened[mask2])
@@ -383,7 +394,7 @@ def get_SFR_M_arrays(MaNGA_IDs, snr_cutoff = 3):
     return my_smd_flattened, my_sigma_sfr_flattened, my_sigma_sfr_error_flattened
 
 def get_trimmed_SFR_M_arrays(MaNGA_IDs, snr_cutoff = 3, distance_range = np.array([0,2])):
-    #Returns the combined flattened arrays of SFR and Stellar Mass surface densities for the MaNGA_IDs
+    #In the SFMS, exclude spaxels of a certain spatial region in the galaxies. The spatial region is described by distance_range = np.array([a,b]). a and b are in units of kpc. Spaxels which reside in this distance range from the center of the galaxy will be excluded. If b = -1, then spaxels in the range (a, +inf) are excluded
     
     my_sigma_sfr_flattened = np.array([])
     my_sigma_sfr_error_flattened = np.array([])
@@ -454,7 +465,8 @@ def get_trimmed_SFR_M_arrays(MaNGA_IDs, snr_cutoff = 3, distance_range = np.arra
 #combined gas metallicity - sigma star arrays
 
 def get_Z_M_arrays(MaNGA_IDs, snr_cutoff = 3):
-    #Returns the combined flattened arrays of gas phase metallicity (and corresponding errors) and stellar mass surface densities for the given MaNGA_IDs
+    #Inputs: an array of MaNGA_IDs of galaxies whose combined resolved GMMS is to be plotted. S/N cutoff on the 4 BPT lines
+    #Returns: the combined flattened arrays of stellar mass and gas metallicity of the spaxels of the galaxies provided. For gas metallicity, the corresponding array containing the errors is also returned
 
     my_gm_flattened = np.array([])
     my_smd_flattened = np.array([])
@@ -492,6 +504,7 @@ def get_Z_M_arrays(MaNGA_IDs, snr_cutoff = 3):
     return my_smd_flattened, my_gm_flattened, my_gm_error_flattened
 
 def get_trimmed_Z_M_arrays(MaNGA_IDs, snr_cutoff = 3, distance_range = np.array([0,2])):
+    #In the GMMS, exclude spaxels of a certain spatial region in the galaxies. The spatial region is described by distance_range = np.array([a,b]). a and b are in units of kpc. Spaxels which reside in this distance range from the center of the galaxy will be excluded. If b = -1, then spaxels in the range (a, +inf) are excluded    
     
     my_gm_flattened = np.array([])
     my_smd_flattened = np.array([])
@@ -558,9 +571,21 @@ def get_trimmed_Z_M_arrays(MaNGA_IDs, snr_cutoff = 3, distance_range = np.array(
         #my_gm_flattened, my_smd_flattened, my_gm_error_flattened are of the same size, with no nan or -ve values
 
     return my_smd_flattened, my_gm_flattened, my_gm_error_flattened
-    
 
-#Getting apertures
+def get_contour_levels(hist, drawAt = [15, 35, 55, 75, 95]):
+    #Obtain contour levels
+    #Inputs: the 2-D histogram over which contours are to be drawn, the percentages of the highest value at which contours are to be drawn
+    #Returns: the absolute contour levels on the 2-D histogram
+    highest = np.max(hist)
+    levels = []
+    for i in range(len(drawAt)):
+        levels.append(highest * (drawAt[i]/100))
+    
+    return levels
+    
+##########################################################################################################################
+
+#functions related to aperture construction
         
 def get_minor_axis(major_axis, ellip):
     '''
@@ -581,7 +606,9 @@ def get_inclination(e):
         
     return inc
 
-def get_photometric_params(MaNGA_ID):   
+def get_photometric_params(MaNGA_ID):
+    #Input: MaNGA_ID
+    #Returns: IFU center in spaxels, FWHM of the beam (in spaxels), position angle of the galaxy (radians), Re in spaxels, ellipticity, inclination
     
     hdul = get_fits_hdul(MaNGA_ID)
     
@@ -609,11 +636,16 @@ def get_photometric_params(MaNGA_ID):
     return center, FWHM, (-1)*(90 - pos_angle - spa)*np.pi/180, Re_spaxels, ellipticity, inclination
 
 def get_apertures_elliptical(MaNGA_ID, method = "Re", binsize = 0.2):
+    #Inputs: MaNGA_ID of the galaxy, method (if "Re" then radial bins are in unit of Re, if "kpc" then radial bins are in unit of kpc), size of the radial bin
+    #Returns two arrays, first is an array of aperture objects, whose first element is the central elliptical aperture, and succesive elements are elliptical annuli. The second array contains the radial distances to these apertures, distance is being measured from the center of the IFU to the midpoint of the aperture/annuli, along the major axis of the galaxy
+    #The radial distance of the last annuli corresponds to the size of the IFU
     
     hdul = get_fits_hdul(MaNGA_ID)
     center, FWHM, pos_angle, Re_spaxels, ellipticity, inclination = get_photometric_params(MaNGA_ID)
     spx_scale = hdul[0].header['CD2_2']*3600 #angular scale of each spaxel in arcsec
     z = get_redshift(MaNGA_ID)
+    
+    #Determine the size of the IFU, thus the radial distance of the last annuli
     
     First = MaNGA_ID.split('-')[0]
     Last = MaNGA_ID.split('-')[1]
@@ -636,15 +668,6 @@ def get_apertures_elliptical(MaNGA_ID, method = "Re", binsize = 0.2):
     
     if(method == "Re"):
         
-        '''
-        Gets elliptical apertures for a given galaxy
-        Inputs: MaNGA ID of the galaxy, radial bin size in units of Re (by default, set to 0.2)
-        Outputs: Returns two arrays, first is an array of aperture objects, whose first element is the central elliptical
-                aperture, and succesive elements are elliptical annuli. The second array contains the radial distances
-                to these apertures, distance is being measured from the center of the IFU to the midpoint of the
-                aperture/annuli, along the major axis of the galaxy.
-        '''      
-
         num_bins = np.round((IFUradius_spaxels/(binsize*Re_spaxels)),0)
 
         start = binsize*Re_spaxels
@@ -666,19 +689,11 @@ def get_apertures_elliptical(MaNGA_ID, method = "Re", binsize = 0.2):
             a_in = a_out
             a_out = a_out + thickness
 
-        radial_distances = [round(r,1) for r in radial_distances]    
+        radial_distances = [round(r,1) for r in radial_distances]   
+        
         return apertures, radial_distances
     
-    elif(method == "Kpc"):
-        
-        '''
-        Gets elliptical apertures for a given galaxy
-        Inputs: MaNGA ID of the galaxy, radial bin size in units of Kpc
-        Outputs: Returns two arrays, first is an array of aperture objects, whose first element is the central elliptical
-                aperture, and succesive elements are elliptical annuli. The second array contains the radial distances
-                to these apertures, distance is being measured from the center of the IFU to the midpoint of the
-                aperture/annuli, along the major axis of the galaxy.
-        '''   
+    elif(method == "Kpc"):   
         
         spx_per_kpc =  (cosmo.arcsec_per_kpc_proper(z)).value/spx_scale
         binsize_spx = spx_per_kpc * binsize
@@ -703,16 +718,18 @@ def get_apertures_elliptical(MaNGA_ID, method = "Re", binsize = 0.2):
             a_in = a_out
             a_out = a_out + thickness
 
-        radial_distances = [round(r,1) for r in radial_distances]    
-        return apertures, radial_distances
+        radial_distances = [round(r,1) for r in radial_distances] 
         
+        return apertures, radial_distances
 
-#Aperture photometry
+############################################################################################################################
+
+#functions related to aperture measurements
 
 def get_aperture_data(image, apertures):
     '''
-    Obtain the data contained in each aperture, when they are drawn over an image.
-    input: the image and a list of aperture objects.
+    Obtain the data contained in each aperture, when they are drawn over an image
+    input: the image and a list of aperture objects
     returns: an array with elements themselves being arrays of the data within each aperture/annulus.
     '''
     data_list = []
@@ -722,12 +739,16 @@ def get_aperture_data(image, apertures):
         data_list.append(aperture_data)
     return np.asarray(data_list)
 
+#############################################################################################################################
+
+#functions related to radial profiles
+
 def get_individual_radial_profile(MaNGA_ID, data_list, surface_density = True, statistic = "median"):
     '''
-    Obtains the median values over all spaxels within each aperture
+    Obtains the statistic ("median", "mean", "sum", "quad" (RMS)) over all spaxels within each aperture
     input: a list with elements themselves being array of data within each aperture
-    returns: an array of median values in each aperture
-    (If surface_density = True, then the final array is multiplied by the deprojection factor (sec(i)))
+    returns: an array of statistic values in each aperture
+    (If surface_density is True, then the final array is multiplied by the deprojection factor (sec(i)))
     '''
     
     center, FWHM, pa, Re_spaxels, ellipticity, inclination = get_photometric_params(MaNGA_ID)
@@ -801,19 +822,27 @@ def get_individual_radial_profile(MaNGA_ID, data_list, surface_density = True, s
             else:
                 values.append(math.nan)
 
-
         return np.asarray(values)
     
+    
 def get_radial_profile_catalog(MaNGA_IDs, method = "Re", binsize = 0.2, stat = "mean", snr_cutoff = 3, BPT_cut = True, deproject = True):
+    #Inputs: list of galaxies (MaNGA_IDs) whose radial profiles are needed, method (if "Re" then radial profiles are binned with respect to Re, if "kpc" then radial profiles are binned with respect to kpc), statistic which is to be computed for each aperture or annuli ("mean", "median", "sum", "quad" (RMS)), S/N cutoff for the 4 BPT lines, if BPT_cut is False then all spaxels are considered for non-emission line based diagnostics otherwise only 'SF' spaxels are considered for non-emission line based diagnostics (note: for emission line based diagnostics only SF spaxels are considered irrespective of the BPT_cut), if deproject is True then surface densities will be de-projected (note: de-projection is not applied to non surface densities irrespective of the deproject value)
+    #Returns: a table. Each row corresponds to a galaxy
     '''
-    Columns: sno, plateifu, ra, dec, redshift, radial_distances, sigma_star_profile, sigma_sfr_profile
+    Columns: sno, plateifu, ra, dec, redshift, stellar_mass, radial_distances, sigma_star_profile, sigma_sfr_profile, sigma_sfr_error_profile, ssfr_profile, ssfr_error_profile, weight
     where,
-    radial_distances: array of radial distances of the apertures for that object in units of Re
-    sigma_star_profile: array of median sigma_star values for that object in units of log10(Msun/Kpc^2)
-    sigma_sfr_profile: array of median sigma_sfr values for that object in units of log10(Msun/yr/Kpc^2)
+    radial_distances: array of radial distances of the apertures for that object in units of Re/kpc
+    sigma_star_profile: array of sigma_star values for that object in units of log10(Msun/Kpc^2)
+    sigma_sfr_profile: array of sigma_sfr values for that object in units of log10(Msun/yr/Kpc^2)
+    sigma_sfr_error_profile: array of sigma_sfr_error values for that object in units of log10(Msun/yr/Kpc^2)
+    ssfr_profile: array of ssfr values for that object in units of log10(/yr)
+    ssfr_error_profile: array of ssfr_error values for that object in units of log10(/yr)
+    weight: volume weight (Wake et al. 2017). 'ESWEIGHT' column
+    
+    aperture/annuli calculations are performed according to 'stat'
     '''
     
-    mytable = pd.DataFrame({'sno': [], 'plateifu': [], 'ra': [], 'dec': [], 'redshift': [], 'stellar_mass': [], 'radial_distances': [], 'sigma_star_profile': [], 'sigma_star_norm_profile': [], 'sigma_sfr_profile': [], 'sigma_sfr_error_profile': [], 'ssfr_profile': [], 'ssfr_error_profile': [], 'weight': []})
+    mytable = pd.DataFrame({'sno': [], 'plateifu': [], 'ra': [], 'dec': [], 'redshift': [], 'stellar_mass': [], 'radial_distances': [], 'sigma_star_profile': [], 'sigma_sfr_profile': [], 'sigma_sfr_error_profile': [], 'ssfr_profile': [], 'ssfr_error_profile': [], 'weight': []})
     
     count = 0
     
@@ -846,18 +875,13 @@ def get_radial_profile_catalog(MaNGA_IDs, method = "Re", binsize = 0.2, stat = "
         BPT_mask = np.logical_not(SF_comp) #mask is True when spaxel is neither SF nor comp
 
         smd = np.copy(get_smd_map(MaNGA_ID))
-        smd_norm = np.copy(get_smd_map(MaNGA_ID))/(10**(stellar_mass))
         if(BPT_cut == True):
             smd[BPT_mask] = math.nan
-            smd_norm[BPT_mask] = math.nan
         smd_datalist = get_aperture_data(smd, apertures)
-        smd_norm_datalist = get_aperture_data(smd_norm, apertures)
         if(deproject == True):
             sigma_star_profile = np.log10(get_individual_radial_profile(MaNGA_ID, smd_datalist, surface_density = True, statistic = stat))
-            sigma_star_norm_profile = np.log10(get_individual_radial_profile(MaNGA_ID, smd_norm_datalist, surface_density = True, statistic = stat))
         else:
             sigma_star_profile = np.log10(get_individual_radial_profile(MaNGA_ID, smd_datalist, surface_density = False, statistic = stat))
-            sigma_star_norm_profile = np.log10(get_individual_radial_profile(MaNGA_ID, smd_norm_datalist, surface_density = False, statistic = stat))
 
         SFR, SFR_error, sigma_sfr, sigma_sfr_error = get_SFR_map(MaNGA_ID, snr_cutoff)
         
@@ -879,45 +903,30 @@ def get_radial_profile_catalog(MaNGA_IDs, method = "Re", binsize = 0.2, stat = "
         
         smd1 = np.copy(get_smd_map(MaNGA_ID))
         smd1[BPT_mask] = math.nan
-        #smd1_datalist = get_aperture_data(smd1, apertures)
         ssfr_datalist = get_aperture_data(sigma_sfr/smd1, apertures)
         
         ssfr_profile = np.log10(get_individual_radial_profile(MaNGA_ID, ssfr_datalist, surface_density = False, statistic = stat))
         
-        #ssfr_profile = np.log10(get_individual_radial_profile(MaNGA_ID, sigma_sfr_datalist, surface_density = False, statistic = "sum")/get_individual_radial_profile(MaNGA_ID, smd1_datalist, surface_density = False, statistic = "sum"))
-        
         #ssfr_error_profile
         
         ssfr_error_datalist = get_aperture_data(sigma_sfr_error/smd1, apertures) 
+        ssfr_error_profile = sigma_sfr_error_profile            
         
-        #ssfr_error_profile = get_individual_radial_profile(MaNGA_ID, ssfr_error_datalist, surface_density = False, statistic = 'quad')/(10**ssfr_profile)
-        ssfr_error_profile = sigma_sfr_error_profile
-        #ssfr_error_profile = get_individual_radial_profile(MaNGA_ID, sigma_sfr_error_datalist, surface_density = False, statistic = "quad")/get_individual_radial_profile(MaNGA_ID, sigma_sfr_datalist, surface_density = False, statistic = "sum")            
-        
-        newrow = pd.DataFrame({'sno': count, 'plateifu': MaNGA_ID, 'ra': ra, 'dec': dec, 'redshift': redshift, 'stellar_mass': stellar_mass, 'radial_distances' : [np.asarray(radial_distances)], 'sigma_star_profile': [np.asarray(sigma_star_profile)], 'sigma_star_norm_profile': [np.asarray(sigma_star_norm_profile)], 'sigma_sfr_profile': [np.asarray(sigma_sfr_profile)], 'sigma_sfr_error_profile': [np.asarray(sigma_sfr_error_profile)], 'ssfr_profile': [np.asarray(ssfr_profile)], 'ssfr_error_profile': [np.asarray(ssfr_error_profile)], 'weight': weight})
+        newrow = pd.DataFrame({'sno': count, 'plateifu': MaNGA_ID, 'ra': ra, 'dec': dec, 'redshift': redshift, 'stellar_mass': stellar_mass, 'radial_distances' : [np.asarray(radial_distances)], 'sigma_star_profile': [np.asarray(sigma_star_profile)], 'sigma_sfr_profile': [np.asarray(sigma_sfr_profile)], 'sigma_sfr_error_profile': [np.asarray(sigma_sfr_error_profile)], 'ssfr_profile': [np.asarray(ssfr_profile)], 'ssfr_error_profile': [np.asarray(ssfr_error_profile)], 'weight': weight})
         
         mytable = mytable.append(newrow, ignore_index = True)
        
     return mytable
 
-def get_sigma_map(MaNGA_ID):
-    #returns the stellar velocity dispersion map (km/s) and the corresponding error map (km/s)
-    
-    hdul = get_fits_hdul(MaNGA_ID)
-    
-    sigma = np.copy(hdul[1].data[15])
-    sigma_error = np.copy(hdul[1].data[16])
-    
-    return sigma, sigma_error
-
-def get_central_sigma(MaNGA_ID, method = "Kpc", binsize = 1, stat = "mean"):
+def get_central_sigma(MaNGA_ID, binsize = 1, stat = "mean"):
+    #Returns the mean (stat = "mean", "median", "quad" (RMS), "sum") stellar velocity dispersion over a 1 kpc (binsize) central aperture of the galaxy
     
     hdul = get_fits_hdul(MaNGA_ID)
     center, FWHM, pos_angle, Re_spaxels, ellipticity, inclination = get_photometric_params(MaNGA_ID)
     spx_scale = hdul[0].header['CD2_2']*3600 #angular scale of each spaxel in arcsec
     z = get_redshift(MaNGA_ID)
     
-    spx_per_kpc =  (cosmo.arcsec_per_kpc_proper(z)).value/spx_scale
+    spx_per_kpc = (cosmo.arcsec_per_kpc_proper(z)).value/spx_scale
     binsize_spx = spx_per_kpc * binsize
 
     a_in = binsize_spx
@@ -941,7 +950,11 @@ def get_central_sigma(MaNGA_ID, method = "Kpc", binsize = 1, stat = "mean"):
     
     return cen_sigma, cen_sigma_error, weight
 
+
 def get_radial_profile(catalog, qty_colname, radii):
+    #Obtain the radial profile of a given quantity
+    #Inputs: the full radial profile catalog (the table), the column name of the quantity whose radial profile is desired, the array of radial distances (should be compatible with the radial profile catalog) at which the apaerture/annuli binned values of the quantity are desired
+    #Returns: mean_qty: array. Each element is the mean of the quantity across all galaxies in the catalog, in the corresponding radial bin. error_qty: array of population standard deviation of the quantity about the mean
     
     mean_qty = np.array([])
     error_qty = np.array([])
@@ -963,10 +976,10 @@ def get_radial_profile(catalog, qty_colname, radii):
        
     return mean_qty, error_qty
 
-
 def get_radially_binned_arrays(catalog, qty_colname, atRadii, remove_nan = True, return_weights = False):
-    #obtain the qty_array for all objects in the catalog at a particular radial distance
-    
+    #At a particular radial distance, obtain the aperture computed value of a quantity across all galaxies. The radial distance should be compatible with the radial profile catalog
+    #Inputs: the radial profile catalog, column name of the desired quantity in the radial profile catalog, the radial distance, if galaxies having nan value of that quantity at that radial distance are supposed to be removed, if the volume weights of the galaxies are also supposed to be returned
+    #Returns: Array. Each element corresponds to the value of the desired quantity at the desired radial distance for a galaxy. Array indexes over galaxies. If return_weights is True, then an array of volume weights of the galaxies are also returned
     arr = np.array([])
     weights = np.array([])
     for i in range(len(catalog)):
@@ -990,10 +1003,11 @@ def get_radially_binned_arrays(catalog, qty_colname, atRadii, remove_nan = True,
     else:
         return array
 
-#delta_sigma_sfr radial profile
 
 def get_delta_sigma_sfr_profile(MaNGA_ID, main_catalog, control_catalog, cs_sm_bins  = np.array([8.9, 9.4, 9.9, 10.4, 10.9, 11.4])):
-    
+    #For the general idea behind this function, refer README
+    #MaNGA_ID should belong to the main_catalog. main_catalog and control_catalog are the radial profile catalogs of the main sample and control sample galaxies respectively. cs_sm_bins are the stellar mass bins in which averaging of delta_sigma_sfr is to be performed
+    #Returns: the mean delta_sigma_sfr radial profile (mean is taken over the matched control galaxies), the corresponding array of errors (error is taken as the std over the matched control galaxies), the array of radial distances 
     IDs = main_catalog['plateifu']
     loc = np.where(IDs == MaNGA_ID)[0][0]
 
@@ -1047,10 +1061,12 @@ def get_delta_sigma_sfr_profile(MaNGA_ID, main_catalog, control_catalog, cs_sm_b
 
     return delta_sigma_sfr_mean, delta_sigma_sfr_error, radial_distances
 
-#function to calculate radial profile gradients
-
 def get_avg_gradient(MaNGA_ID, catalog, qty = "sigma_sfr_profile"):
-    
+    #Calculate the average gradient of radial profiles
+    #Goal: find slope of the line joining initial point and final point of the radial profile plot
+    #Inputs: MaNGA_ID of the galaxy, the radial profile catalog, the quantity whose radial profile is being considered
+    #Returns: a single value -> gradient
+ 
     IDs = catalog['plateifu']
     loc = np.where(IDs == MaNGA_ID)[0][0]
     
@@ -1058,7 +1074,7 @@ def get_avg_gradient(MaNGA_ID, catalog, qty = "sigma_sfr_profile"):
     qty_profile = catalog[qty][loc]
     
     #radial_distances and qty_profile are arrays of same length, but qty_profile might contain nan's
-    #Goal: find slope of the line joining initial point and final point
+   
     
     if(len(qty_profile[np.isfinite(qty_profile)]) <= 1):
         return 0
@@ -1074,16 +1090,7 @@ def get_avg_gradient(MaNGA_ID, catalog, qty = "sigma_sfr_profile"):
         
         return grad
 
-#Drawing contours over resolved plots
-
-def get_contour_levels(hist, drawAt = [15, 35, 55, 75, 95]):
-    
-    highest = np.max(hist)
-    levels = []
-    for i in range(len(drawAt)):
-        levels.append(highest * (drawAt[i]/100))
-    
-    return levels
+###########################################################################################################################################################
 
     
     
