@@ -28,14 +28,16 @@ Description of the functions are given in 'pymargay.py' itself, in the form of c
 
 For the function "get_delta_sigma_sfr_profile()", the following is the general idea:
 
-	Alternate way of studying suppression and elevation of star formation rate at resolved scales (based on Ellison et al. 2018)
+  Alternate way of studying suppression and elevation of star formation rate at resolved scales (based on Ellison et al. 2018)
 
-	On y axis: delta_sigma_sfr, on x axis: radial_distance
+  On y axis: delta_sigma_sfr, on x axis: radial_distance
 
-   	 1) Divide the control sample galaxies into various bins of total stellar mass.
-   	 2) Suppose one such bin is 9.9 to 10.4 log solar masses, and it has say 150 objects.
-   	 3) Pick a main sample galaxy, suppose it has a stellar mass of 10.2. Properties of this main sample galaxy shall be compared with properties of the 150 control sample galaxies in 2)
-   	 4) Now suppose you want to compare sigma_sfr at a radial distance of 0.5Kpc.
-   	 5) You know the sigma_sfr at a radial distance of 0.5Kpc for the main sample galaxy and the 150 control sample galaxies. So define delta_sigma_sfr = sigma_sfr for this main sample galaxy - sigma_sfr of control sample galaxies, you will have 150 such values of delta_sigma_sfr. Take mean and std of these.
-   	 6) Similarly do it for other radial distances, i.e. 1.5Kpc, 2.5Kpc, ...
-    	 7) You will get the delta_sigma_sfr radial profile for this main sample galaxy 
+  1) Divide the control sample galaxies into various bins of total stellar mass.
+  2) Suppose one such bin is 9.9 to 10.4 log solar masses, and it has say 150 objects.
+  3) Pick a main sample galaxy, suppose it has a stellar mass of 10.2. Properties of this main sample galaxy shall be compared with properties of the 150 control sample galaxies in 2)
+  4) Now suppose you want to compare sigma_sfr at a radial distance of 0.5Kpc.
+  5) You know the sigma_sfr at a radial distance of 0.5Kpc for the main sample galaxy and the 150 control sample galaxies. So define delta_sigma_sfr = sigma_sfr for this main sample galaxy - sigma_sfr of control sample galaxies, you will have 150 such values of delta_sigma_sfr. Take mean and std of these.
+  6) Similarly do it for other radial distances, i.e. 1.5Kpc, 2.5Kpc, ...
+  7) You will get the delta_sigma_sfr radial profile for this main sample galaxy 
+
+################################################################################################################################################################
