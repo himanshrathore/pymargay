@@ -40,4 +40,14 @@ For the function "get_delta_sigma_sfr_profile()", the following is the general i
   6) Similarly do it for other radial distances, i.e. 1.5Kpc, 2.5Kpc, ...
   7) You will get the delta_sigma_sfr radial profile for this main sample galaxy 
 
+# Pipe3D_sample_download.py
+
+This script can be used to download Pipe3D datacubes. In order to use this script, the following addresses are needed:
+
+'address1' -> text file containing the list of MaNGA_IDs whose Pipe3D datacubes are to be downloaded
+'address2' -> directory where the zipped datacubes are to be stored
+'address3' -> directory where the datacubes are to be extracted
+
+Note that this script automatically checks if the file is already present in the specified directories. If it is present, it will not be downloaded again from the internet. This check is done for both zipped and extracted datacubes. 
+
 ################################################################################################################################################################
