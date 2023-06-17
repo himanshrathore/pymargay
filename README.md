@@ -50,4 +50,8 @@ This script can be used to download Pipe3D datacubes. In order to use this scrip
 
 Note that this script automatically checks if the file is already present in the specified directories. If it is present, it will not be downloaded again from the internet. This check is done for both zipped and extracted datacubes. 
 
-################################################################################################################################################################
+# Citation
+If you utilize or refer to this code in your scientific work, please cite the following paper:
+
+Rathore, Himansh; Kumar, Kavin; Mishra, Preetish Kumar; Wadadekar, Yogesh; Bait, Omkar; Star-forming S0 Galaxies in SDSS-MaNGA: Fading Spirals or Rejuvenated S0s? Monthly Notices of the Royal Astronomical Society, Volume 513, Issue 1, June 2022, Pages 389–404, https://doi.org/10.1093/mnras/stac871
+
