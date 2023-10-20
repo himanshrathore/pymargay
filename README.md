@@ -2,12 +2,13 @@
 PYthon based MAnga Resolved GAlaxY analysis
 
 Authors: Himansh Rathore and Kavin Kumar
+Last Updated: Oct 19, 2023
 
 Manuscript: Himansh Rathore, Kavin Kumar, Preetish K Mishra, Yogesh Wadadekar, Omkar Bait, Star-forming S0 Galaxies in SDSS-MaNGA: fading spirals or rejuvenated S0s?, Monthly Notices of the Royal Astronomical Society, Volume 513, Issue 1, June 2022, Pages 389–404, https://doi.org/10.1093/mnras/stac871
 
 arXiv pre-print: arXiv:2203.14283 [astro-ph.GA]
 
-Description:
+# Description for 'pymargay.py'
 
 The python module 'pymargay.py' can be used to perform various analysis with resolved Pipe3D data products of MaNGA galaxies. These include obtaining resolved maps of various quanities, making resolved main sequence type of plots, generating radial profiles of various quantities and quite a few other functionalities.
 
@@ -40,13 +41,15 @@ For the function "get_delta_sigma_sfr_profile()", the following is the general i
   6) Similarly do it for other radial distances, i.e. 1.5Kpc, 2.5Kpc, ...
   7) You will get the delta_sigma_sfr radial profile for this main sample galaxy 
 
-# Pipe3D_sample_download.py
+# Description for 'Pipe3D_sample_download.py'
 
-This script can be used to download Pipe3D datacubes. In order to use this script, the following addresses are needed:
+This script can be used to download a set of MaNGA datacubes from the Pipe3D archive storage. In order to use this script, the following addresses are needed:
 
 'address1' -> text file containing the list of MaNGA_IDs whose Pipe3D datacubes are to be downloaded
 'address2' -> directory where the zipped datacubes are to be stored
 'address3' -> directory where the datacubes are to be extracted
+
+The user needs to go inside the script and supply these addresses.
 
 Note that this script automatically checks if the file is already present in the specified directories. If it is present, it will not be downloaded again from the internet. This check is done for both zipped and extracted datacubes. 
 
