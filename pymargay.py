@@ -1,4 +1,5 @@
 #PYthon based MAnga Resolved GAlaxY analysis
+#Some utilities for analyzing reduced MaNGA datacubes
 
 #necessary imports
 
@@ -16,7 +17,7 @@ import pandas as pd
 
 #######################################################################################################################
 
-#Required catalogs
+#Required catalogs (these catalogs were used in our paper, see README file)
 
 #global properties table, cross of Pipe3D + Salim
 Pipe3D_Salim = Table.read('address1')
@@ -33,14 +34,15 @@ MaNGA_target = Table.read('address4')
 
 def get_fits_hdul(MaNGA_ID):
     #retrieves the hdul of the fits file of our object
+    #input: MaNGA ID of the galaxy, as a string of the form "aaaa-aaaa"
     
-    hdul = fits.open('address5') #address5 should be a function of MaNGA_ID    
+    hdul = fits.open('address5') #address5 should be a function of MaNGA_ID - the actual location where the datacube is stored    
     return hdul
 
 def get_coordinates(MaNGA_ID):
     '''
     Gets the equitorial coordinates of the given galaxy from the primary header of the datacube.
-    input: Manga_ID of the galaxy
+    input: MaNGA_ID of the galaxy, as a string of the form "aaaa-aaaa" 
     returns: 2-tuple (ra,dec) of the galaxy, extracted from the primary header of the datacube
     '''
     hdul = get_fits_hdul(MaNGA_ID)
